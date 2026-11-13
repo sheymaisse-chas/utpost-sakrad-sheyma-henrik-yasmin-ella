@@ -49,5 +49,15 @@ export const searchSchema = z.object({
   q: z.string().trim().max(100).default(''),
 });
 
+// PUT /api/guides/:id – redaktionens uppdatering (kräver rollen editor).
+export const guideUpdateSchema = z.object({
+  title: z.string().trim().min(1).max(120),
+  region: z.string().trim().min(1).max(60),
+  difficulty: z.enum(['lätt', 'medel', 'svår']),
+  lengthKm: z.coerce.number().min(0).max(1000),
+  bodyHtml: z.string().max(50_000),
+  published: z.boolean(),
+});
+
 // Id i adressen: /api/tours/:id ska vara ett positivt heltal, inte "1 or 1=1".
 export const idParam = z.coerce.number().int().positive();

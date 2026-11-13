@@ -16,7 +16,7 @@
 | # | Risk | Gäller oss? | Vad vi hittade (fil, endpoint) | Vad vi gjorde (PR) | Kontroll (testet som var rött före fixen, eller curl) |
 |---|---|---|---|---|---|
 | A01 | Broken Access Control | | | | |
-| A02 | Security Misconfiguration | | | | |
+| A02 | Security Misconfiguration | | | https://github.com/sheymaisse-chas/utpost-sakrad-sheyma-henrik-yasmin-ella/actions/runs/43408959497/job/131830252253?pr=1 | |
 | A03 | Software Supply Chain Failures | | | | |
 | A04 | Cryptographic Failures | | | | |
 | A05 | Injection | | | | |
