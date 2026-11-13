@@ -102,9 +102,9 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Beroenden – npm audit (bara det som körs i produktion, high och critical)
-        run:
-          npm audit --omit=dev --audit-level=high
-          # Trivy mot repot: package-lock.json (sårbarheter), alla filer (hemligheter – nycklar, tokens,
+        run: npm audit --omit=dev --audit-level=high
+
+      # Trivy mot repot: package-lock.json (sårbarheter), alla filer (hemligheter – nycklar, tokens,
       # anslutningssträngar som råkat committas) och Dockerfiles (misconfig: root-användare, saknad HEALTHCHECK …).
       # .trivyignore listar de fynd vi medvetet låter vara, med motivering.
       - name: Repot – Trivy (beroenden, hemligheter, Dockerfiles)
@@ -113,6 +113,20 @@ jobs:
           scan-type: fs
           scan-ref: .
           scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          trivyignores: .trivyignore
+
+      # Hela appen startas som i compose – det är den ZAP ska anropa, och api-imagen som Trivy ska skanna.
+      - name: Bygg imagerna och starta appen (compose)
+        run: docker compose up -d --build --wait
+
+      - name: "Imagen – Trivy (api-imagen: Alpine-paket, Node, npm-paket)"
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: image
+          image-ref: utpost-api
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: "1"
