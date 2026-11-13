@@ -31,12 +31,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm            # cachar ~/.npm nycklat på package-lock.json
-      - run: npm ci             # installerar alla workspaces (shared, api, client) – exakt enligt lockfilen
+          cache: npm # cachar ~/.npm nycklat på package-lock.json
+      - run: npm ci # installerar alla workspaces (shared, api, client) – exakt enligt lockfilen
       - run: npm run lint
       - run: npm run format:check
-      - run: npm run typecheck   # M2: vue-tsc i client/ och tsc i api/. M5: kör codegen först – schema → fråga → vy kontrolleras här
-      - run: npm test            # klientens tester (Vitest + Testing Library, API:et mockat)
+      - run: npm run typecheck # M2: vue-tsc i client/ och tsc i api/. M5: kör codegen först – schema → fråga → vy kontrolleras här
+      - run: npm test # klientens tester (Vitest + Testing Library, API:et mockat)
 
   # M5: integrationstester mot GraphQL-servern med riktig databas. Postgres och Mongo startas som
   # services bredvid jobbet – samma images som i compose.yaml – och nås på localhost.
@@ -51,7 +51,7 @@ jobs:
           POSTGRES_PASSWORD: utpost
           POSTGRES_DB: utpost
         ports:
-          - 5432:5432              # i jobbet: localhost:5432 (inte 5433 som på din dator)
+          - 5432:5432 # i jobbet: localhost:5432 (inte 5433 som på din dator)
         options: >-
           --health-cmd "pg_isready -U utpost -d utpost"
           --health-interval 5s
@@ -80,13 +80,34 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run seed          # tom databas → testdata, exakt som lokalt
-      - run: npm run migrate:logs  # mätpunkterna till Mongo – testet för Tour.logs kräver det
+      - run: npm run seed # tom databas → testdata, exakt som lokalt
+      - run: npm run migrate:logs # mätpunkterna till Mongo – testet för Tour.logs kräver det
       - run: npm run test:api
+
+  # M8: säkerhetsskanning. Tre verktyg, tre frågor, i den ordning de blir dyrare:
+  #   npm audit – har våra beroenden kända sårbarheter? (SCA, sekunder)
+  #   Trivy     – samma fråga ur en annan databas, plus hemligheter i repot och misstag i Dockerfiles (sekunder),
+  #               och sedan hela api-imagen: Alpine-paketen och Node, inte bara våra npm-paket
+  #   ZAP       – anropar den KÖRANDE appen som en angripare skulle: saknade headers, läckt serverinfo (DAST, minuter)
+  # Jobbet körs på varje PR, parallellt med Kvalitet – det behöver inget av de andra jobben.
+  # Rött här blockerar merge (branch protection kräver "Säkerhet").
+  security:
+    name: Säkerhet
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Beroenden – npm audit (bara det som körs i produktion, high och critical)
+        run: npm audit --omit=dev --audit-level=high
 
   build:
     name: Bygg
-    runs-on: ubuntu-latest     # körs parallellt med quality – de behöver inte varandra
+    runs-on: ubuntu-latest # körs parallellt med quality – de behöver inte varandra
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -104,10 +125,10 @@ jobs:
   image:
     name: Image
     runs-on: ubuntu-latest
-    needs: [quality, build]    # ingen image av kod som inte klarat kontrollerna
+    needs: [quality, build] # ingen image av kod som inte klarat kontrollerna
     permissions:
       contents: read
-      packages: write          # GITHUB_TOKEN får publicera i GHCR – bara i det här jobbet
+      packages: write # GITHUB_TOKEN får publicera i GHCR – bara i det här jobbet
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
@@ -131,12 +152,12 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
       - uses: docker/build-push-action@v6
         with:
-          context: .                   # repots rot, som i compose.yaml
+          context: . # repots rot, som i compose.yaml
           file: api/Dockerfile
           push: ${{ github.event_name == 'push' }}
           tags: ${{ steps.meta-api.outputs.tags }}
           labels: ${{ steps.meta-api.outputs.labels }}
-          build-args: GIT_SHA=${{ github.sha }}   # M6: syns i /api/health – deploysteget väntar på den
+          build-args: GIT_SHA=${{ github.sha }} # M6: syns i /api/health – deploysteget väntar på den
           cache-from: type=gha,scope=api
           cache-to: type=gha,mode=max,scope=api
 
@@ -163,18 +184,18 @@ jobs:
   deploy:
     name: Deploy → Azure staging
     runs-on: ubuntu-latest
-    needs: [image, integration]                      # samma image som Image publicerade; aldrig en deploy av kod med röda API-tester
+    needs: [image, integration] # samma image som Image publicerade; aldrig en deploy av kod med röda API-tester
     # M8: körs bara om miljön azure-staging har sina variabler – i ett repo utan Azure (labbparen) hoppas jobbet över i stället för att bli rött.
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.AZURE_APP != ''
     environment:
-      name: azure-staging                            # variablerna (id:n och adressen) ligger på miljön, inte i repot
+      name: azure-staging # variablerna (id:n och adressen) ligger på miljön, inte i repot
       url: ${{ vars.AZURE_URL }}
     permissions:
-      id-token: write                                # får be GitHub om en kortlivad OIDC-token – det finns ingen lösenordshemlighet
+      id-token: write # får be GitHub om en kortlivad OIDC-token – det finns ingen lösenordshemlighet
       contents: read
     concurrency:
       group: deploy-staging
-      cancel-in-progress: false                      # två deployer i rad får köa, inte avbryta varandra
+      cancel-in-progress: false # två deployer i rad får köa, inte avbryta varandra
     steps:
       - name: Logga in i Azure med GitHubs identitet (OIDC)
         uses: azure/login@v3
@@ -244,12 +265,12 @@ jobs:
   deploy-function:
     name: Deploy → Azure Functions
     runs-on: ubuntu-latest
-    needs: [quality]                                 # functions/ har inga egna tester – men ingen deploy av en röd main
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.AZURE_FUNCTION_APP != ''   # M8: hoppas över utan Azure-variabler, som Deploy → Azure staging
+    needs: [quality] # functions/ har inga egna tester – men ingen deploy av en röd main
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.AZURE_FUNCTION_APP != '' # M8: hoppas över utan Azure-variabler, som Deploy → Azure staging
     environment:
-      name: azure-staging                            # AZURE_FUNCTION_APP ligger här bredvid id:n från M6
+      name: azure-staging # AZURE_FUNCTION_APP ligger här bredvid id:n från M6
     permissions:
-      id-token: write                                # OIDC-token, inget lösenord
+      id-token: write # OIDC-token, inget lösenord
       contents: read
     concurrency:
       group: deploy-function
@@ -284,7 +305,7 @@ jobs:
         with:
           app-name: ${{ vars.AZURE_FUNCTION_APP }}
           package: functions
-          respect-funcignore: true                   # local.settings*.json följer inte med
+          respect-funcignore: true # local.settings*.json följer inte med
 
       - name: Röktest – process-image svarar med fyra varianter
         env:
